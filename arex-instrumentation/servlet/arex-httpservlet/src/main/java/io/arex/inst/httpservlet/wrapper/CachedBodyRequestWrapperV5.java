@@ -6,10 +6,7 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -60,6 +57,27 @@ public class CachedBodyRequestWrapperV5 extends HttpServletRequestWrapper {
         this.contentCacheLimit = contentCacheLimit;
     }
 
+    public CachedBodyRequestWrapperV5(HttpServletRequest request, boolean readRequest) {
+        super(request);
+        int contentLength = request.getContentLength();
+        this.cachedContent = new ByteArrayOutputStream(contentLength >= 0 ? contentLength : 1024);
+
+        if (readRequest) {
+            try {
+                InputStream requestInputStream = request.getInputStream();
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = requestInputStream.read(buffer)) != -1) {
+                    cachedContent.write(buffer, 0, bytesRead);
+                }
+                this.inputStream = new ContentCachedInputStream(new ByteArrayInputStream(cachedContent.toByteArray()));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        this.contentCacheLimit = null;
+    }
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
@@ -260,4 +278,44 @@ public class CachedBodyRequestWrapperV5 extends HttpServletRequestWrapper {
             this.is.setReadListener(readListener);
         }
     }
+
+    private class ContentCachedInputStream extends ServletInputStream {
+        private final InputStream sourceStream;
+        private boolean finished = false;
+
+        public ContentCachedInputStream(InputStream sourceStream) {
+            this.sourceStream = sourceStream;
+        }
+
+        public int read() throws IOException {
+            int data = this.sourceStream.read();
+            if (data == -1) {
+                this.finished = true;
+            }
+
+            return data;
+        }
+
+        public int available() throws IOException {
+            return this.sourceStream.available();
+        }
+
+        public void close() throws IOException {
+            super.close();
+            this.sourceStream.close();
+        }
+
+        public boolean isFinished() {
+            return this.finished;
+        }
+
+        public boolean isReady() {
+            return true;
+        }
+
+        public void setReadListener(ReadListener readListener) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
 }

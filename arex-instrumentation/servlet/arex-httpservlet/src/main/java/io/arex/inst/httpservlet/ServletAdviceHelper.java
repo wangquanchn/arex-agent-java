@@ -10,6 +10,7 @@ import io.arex.inst.runtime.config.Config;
 import io.arex.inst.runtime.context.ArexContext;
 import io.arex.inst.runtime.context.ContextManager;
 import io.arex.inst.runtime.listener.EventProcessor;
+import io.arex.inst.runtime.model.RecordRuleMatchResult;
 import io.arex.inst.runtime.request.RequestHandlerManager;
 import io.arex.inst.runtime.listener.CaseEvent;
 import io.arex.inst.runtime.listener.CaseEventDispatcher;
@@ -17,7 +18,9 @@ import io.arex.inst.runtime.listener.EventSource;
 import io.arex.inst.runtime.model.ArexConstants;
 import io.arex.inst.runtime.util.IgnoreUtils;
 import io.arex.inst.runtime.log.LogManager;
+
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -99,15 +102,19 @@ public class ServletAdviceHelper {
             return null;
         }
 
+        boolean existParamRule = Config.get().isExistBodyParamRule();
+        if (existParamRule) {
+            httpServletRequest = adapter.wrapRequest(httpServletRequest, true);
+        }
         if (shouldSkip(adapter, httpServletRequest)) {
             CaseEventDispatcher.onEvent(CaseEvent.ofEnterEvent());
-            return null;
+            return existParamRule ? Pair.of(httpServletRequest, null) : null;
         }
 
         RequestHandlerManager.preHandle(httpServletRequest, adapter.getServletVersion());
         // skip servlet if attr with arex-skip-flag
         if (Boolean.TRUE.equals(adapter.getAttribute(httpServletRequest, ArexConstants.SKIP_FLAG))) {
-            return null;
+            return existParamRule ? Pair.of(httpServletRequest, null) : null;
         }
 
         // 302 Redirect request
@@ -129,7 +136,7 @@ public class ServletAdviceHelper {
             return Pair.of(httpServletRequest, httpServletResponse);
         }
 
-        return null;
+        return existParamRule ? Pair.of(httpServletRequest, null) : null;
     }
 
     public static <TRequest, TResponse> void onServiceExit(
@@ -238,12 +245,12 @@ public class ServletAdviceHelper {
             return false;
         }
         String pattern = adapter.getPattern(httpServletRequest);
-        // As long as one parameter is hit in includeServiceOperations, the operation will not be skipped
-        if (CollectionUtil.isNotEmpty(Config.get().getIncludeServiceOperations()) &&
-            !(IgnoreUtils.includeOperation(pattern) ||
-                IgnoreUtils.includeOperation(requestURI))) {
-            return true;
-        }
+//        // As long as one parameter is hit in includeServiceOperations, the operation will not be skipped
+//        if (CollectionUtil.isNotEmpty(Config.get().getIncludeServiceOperations()) &&
+//            !(IgnoreUtils.includeOperation(pattern) ||
+//                IgnoreUtils.includeOperation(requestURI))) {
+//            return true;
+//        }
         // As long as one parameter is hit in excludeServiceOperations, the operation will be skipped
         if (IgnoreUtils.excludeOperation(pattern) ||
             IgnoreUtils.excludeOperation(requestURI)) {
@@ -261,7 +268,33 @@ public class ServletAdviceHelper {
             return true;
         }
 
-        return Config.get().invalidRecord(pattern);
+        // Filter record rule
+        Map<String, String[]> parameterMap = null;
+        String jsonBody = "{}";
+        if (Config.get().isExistUrlParamRule()) {
+            parameterMap = adapter.getParameterMap(httpServletRequest);
+        }
+        if (Config.get().isExistBodyParamRule()) {
+            byte[] requestBytes = adapter.getRequestBytes(httpServletRequest);
+            jsonBody = new String(requestBytes);
+        }
+
+        String tokenBucketKey = pattern;
+        if (CollectionUtil.isNotEmpty(Config.get().getRecordRuleList())) {
+            RecordRuleMatchResult patternMatchResult = IgnoreUtils.includeRecordRule(pattern, parameterMap, jsonBody);
+            if (patternMatchResult.isMatch()) {
+                tokenBucketKey = patternMatchResult.getTokenBucketKey();
+            } else {
+                RecordRuleMatchResult requestURIMatchResult = IgnoreUtils.includeRecordRule(requestURI, parameterMap, jsonBody);
+                if (requestURIMatchResult.isMatch()) {
+                    tokenBucketKey = requestURIMatchResult.getTokenBucketKey();
+                } else {
+                    return true;
+                }
+            }
+        }
+
+        return Config.get().invalidRecord(tokenBucketKey);
     }
 
     private static <TRequest, TResponse> String getRedirectRecordId(ServletAdapter<TRequest, TResponse> adapter,

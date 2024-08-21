@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.Map;
 
 /**
  * ServletAdapterImplV5
@@ -45,6 +46,11 @@ public class ServletAdapterImplV5 implements ServletAdapter<HttpServletRequest, 
             return httpServletRequest;
         }
         return new CachedBodyRequestWrapperV5(httpServletRequest);
+    }
+
+    @Override
+    public HttpServletRequest wrapRequest(HttpServletRequest httpServletRequest, boolean readRequest) {
+        return readRequest ? new CachedBodyRequestWrapperV5(httpServletRequest, readRequest) : new CachedBodyRequestWrapperV5(httpServletRequest);
     }
 
     @Override
@@ -254,4 +260,10 @@ public class ServletAdapterImplV5 implements ServletAdapter<HttpServletRequest, 
     public String getServletVersion() {
         return ArexConstants.SERVLET_V5;
     }
+
+    @Override
+    public Map<String, String[]> getParameterMap(HttpServletRequest httpServletRequest) {
+        return httpServletRequest.getParameterMap();
+    }
+
 }

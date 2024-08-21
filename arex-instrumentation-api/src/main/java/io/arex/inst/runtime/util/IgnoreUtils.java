@@ -1,5 +1,9 @@
 package io.arex.inst.runtime.util;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.arex.agent.bootstrap.util.CollectionUtil;
 import io.arex.agent.bootstrap.util.ConcurrentHashSet;
 import io.arex.inst.runtime.log.LogManager;
@@ -7,12 +11,20 @@ import io.arex.inst.runtime.config.Config;
 import io.arex.inst.runtime.context.ArexContext;
 import io.arex.inst.runtime.context.ContextManager;
 import io.arex.agent.bootstrap.util.StringUtil;
+import io.arex.inst.runtime.model.ParamRuleEntity;
+import io.arex.inst.runtime.model.RecordRuleEntity;
+import io.arex.inst.runtime.model.RecordRuleMatchResult;
+import io.arex.inst.runtime.model.ValueRuleEntity;
 
 import java.util.*;
 
 
 public class IgnoreUtils {
     private static final String SEPARATOR_STAR = "*";
+
+    public static final String PARAM_TYPE_QUERY_STRING = "QUERY_STRING";
+    public static final String PARAM_TYPE_JSON_BODY = "JSON_BODY";
+
     /**
      *  operation cache: can not serialize args or response
      */
@@ -54,6 +66,125 @@ public class IgnoreUtils {
 
         Set<String> includeServiceOperations = Config.get().getIncludeServiceOperations();
         return operationMatched(targetName, includeServiceOperations);
+    }
+
+    public static RecordRuleMatchResult includeRecordRule(String targetName, Map<String, String[]> parameterMap, String jsonBody) {
+        if (StringUtil.isEmpty(targetName) || Config.get() == null) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        List<RecordRuleEntity> recordRuleList = Config.get().getRecordRuleList();
+        return recordRuleMatched(recordRuleList, targetName, parameterMap, jsonBody);
+    }
+
+    private static RecordRuleMatchResult recordRuleMatched(List<RecordRuleEntity> recordRuleList,
+                                             String targetName,
+                                             Map<String, String[]> parameterMap,
+                                             String jsonBody) {
+        if (CollectionUtil.isEmpty(recordRuleList)) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        for (RecordRuleEntity recordRule : recordRuleList) {
+            if (!recordRule.getHttpPath().equalsIgnoreCase(targetName)) {
+                continue;
+            }
+
+            List<ParamRuleEntity> paramRuleList = recordRule.getParamRuleEntityList();
+            if (CollectionUtil.isEmpty(paramRuleList)) {
+                return RecordRuleMatchResult.matched(recordRule.getUrlRuleId());
+            }
+
+            // re
+            for (ParamRuleEntity paramRule : paramRuleList) {
+                switch (paramRule.getParamType()) {
+                    case PARAM_TYPE_QUERY_STRING:
+                        if (urlParamRuleMatched(paramRule, parameterMap)) {
+                            return RecordRuleMatchResult.matched(recordRule.getUrlRuleId(), paramRule.getParamRuleId());
+                        }
+                        break;
+                    case PARAM_TYPE_JSON_BODY:
+                        if (bodyParamRuleMatched(paramRule, jsonBody)) {
+                            return RecordRuleMatchResult.matched(recordRule.getUrlRuleId(), paramRule.getParamRuleId());
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        return RecordRuleMatchResult.notMatched();
+    }
+
+    private static boolean urlParamRuleMatched(ParamRuleEntity paramRule,
+                                               Map<String, String[]> parameterMap) {
+        List<ValueRuleEntity> valueRuleList = paramRule.getValueRuleEntityList();
+        if (CollectionUtil.isEmpty(valueRuleList)) {
+            return false;
+        }
+
+        for (ValueRuleEntity valueRule : valueRuleList) {
+            String[] values = parameterMap.get(valueRule.getKey());
+            if (values == null || values.length == 0) {
+                continue;
+            }
+
+            boolean matched = Arrays.stream(values).anyMatch(value -> value.matches(valueRule.getValue()));
+            if (matched) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean bodyParamRuleMatched(ParamRuleEntity paramRule, String jsonBody) {
+        List<ValueRuleEntity> valueRuleList = paramRule.getValueRuleEntityList();
+        if (CollectionUtil.isEmpty(valueRuleList)) {
+            return false;
+        }
+
+        for (ValueRuleEntity valueRule : valueRuleList) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                JsonNode jsonNode = objectMapper.readTree(jsonBody);
+                if (jsonElementMatched(jsonNode, valueRule)) {
+                    return true;
+                }
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean jsonElementMatched(JsonNode jsonNode, ValueRuleEntity valueRule) {
+        String matchedKey = valueRule.getKey();
+        String matchedValue = valueRule.getValue();
+        if (jsonNode.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = jsonNode.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                String jsonKey = field.getKey();
+                JsonNode jsonValue = field.getValue();
+                if (jsonKey.equals(matchedKey) && jsonValue.asText().matches(matchedValue)) {
+                    return true;
+                }
+
+                if (jsonElementMatched(jsonValue, valueRule)) {
+                    return true;
+                }
+            }
+        } else if (jsonNode.isArray()) {
+            // 如果 JSON 元素是一个数组，递归检查数组中的每个元素
+            for (JsonNode arrayElement : jsonNode) {
+                if (jsonElementMatched(arrayElement, valueRule)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

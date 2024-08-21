@@ -7,6 +7,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.Map;
 
 /**
  * ServletAdapter
@@ -34,6 +35,8 @@ public interface ServletAdapter<HttpServletRequest, HttpServletResponse> {
     void setResponseHeader(HttpServletResponse httpServletResponse, String name, String value);
 
     HttpServletRequest wrapRequest(HttpServletRequest httpServletRequest);
+
+    HttpServletRequest wrapRequest(HttpServletRequest httpServletRequest, boolean readRequest);
 
     HttpServletResponse wrapResponse(HttpServletResponse httpServletResponse);
 
@@ -100,4 +103,7 @@ public interface ServletAdapter<HttpServletRequest, HttpServletResponse> {
     }
 
     String getServletVersion();
+
+    Map<String, String[]> getParameterMap(HttpServletRequest httpServletRequest);
+
 }
