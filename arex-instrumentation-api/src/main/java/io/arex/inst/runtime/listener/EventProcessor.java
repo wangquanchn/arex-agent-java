@@ -6,6 +6,7 @@ import io.arex.agent.bootstrap.util.AdviceClassesCollector;
 import io.arex.agent.bootstrap.util.NumberUtil;
 import io.arex.agent.bootstrap.util.StringUtil;
 import io.arex.agent.bootstrap.util.ServiceLoader;
+import io.arex.inst.runtime.model.ArexConstants;
 import io.arex.inst.runtime.model.InitializeEnum;
 import io.arex.inst.runtime.request.RequestHandlerManager;
 import io.arex.inst.runtime.log.LogManager;
@@ -82,6 +83,12 @@ public class EventProcessor {
         ArexContext context = ContextManager.currentContext(true, source.getCaseId());
         if (context != null) {
             context.setExcludeMockTemplate(Serializer.deserialize(source.getExcludeMockTemplate(), EXCLUDE_MOCK_TYPE));
+            if (source.getHttpPath() != null) {
+                ContextManager.setAttachment(ArexConstants.CONTEXT_ATTACHMENT_KEY_HTTP_PATH, source.getHttpPath());
+            }
+            if (source.getHttpPath() != null) {
+                ContextManager.setAttachment(ArexConstants.CONTEXT_ATTACHMENT_KEY_RECORD_RULE_ID, source.getRuleId());
+            }
         }
     }
 

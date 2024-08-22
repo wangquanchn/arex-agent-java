@@ -106,7 +106,8 @@ public class ServletAdviceHelper {
         if (existParamRule) {
             httpServletRequest = adapter.wrapRequest(httpServletRequest, true);
         }
-        if (shouldSkip(adapter, httpServletRequest)) {
+        SkipResult skipResult = shouldSkip(adapter, httpServletRequest);
+        if (skipResult.isSkip()) {
             CaseEventDispatcher.onEvent(CaseEvent.ofEnterEvent());
             return existParamRule ? Pair.of(httpServletRequest, null) : null;
         }
@@ -125,7 +126,9 @@ public class ServletAdviceHelper {
             CaseEventDispatcher.onEvent(CaseEvent.ofEnterEvent());
             String caseId = adapter.getRequestHeader(httpServletRequest, ArexConstants.RECORD_ID);
             String excludeMockTemplate = adapter.getRequestHeader(httpServletRequest, ArexConstants.HEADER_EXCLUDE_MOCK);
-            CaseEventDispatcher.onEvent(CaseEvent.ofCreateEvent(EventSource.of(caseId, excludeMockTemplate)));
+            EventSource eventSource = EventSource.of(caseId, excludeMockTemplate);
+            addRuleRecordToEventSource(skipResult, eventSource);
+            CaseEventDispatcher.onEvent(CaseEvent.ofCreateEvent(eventSource));
             addAttachmentsToContext(adapter, httpServletRequest);
             RequestHandlerManager.handleAfterCreateContext(httpServletRequest, adapter.getServletVersion());
         }
@@ -210,39 +213,38 @@ public class ServletAdviceHelper {
         adapter.setAttribute(httpServletRequest, SERVLET_RESPONSE, response);
     }
 
-    private static <TRequest> boolean shouldSkip(ServletAdapter<TRequest, ?> adapter,
-                                                 TRequest httpServletRequest) {
+    private static <TRequest> SkipResult shouldSkip(ServletAdapter<TRequest, ?> adapter, TRequest httpServletRequest) {
         if (!EventProcessor.dependencyInitComplete()) {
-            return true;
+            return SkipResult.skip();
         }
 
         // skip if pre-request http-method is HEAD or OPTIONS
         if (HttpMethod.HEAD.name().equals(adapter.getMethod(httpServletRequest))
                 || HttpMethod.OPTIONS.name().equals(adapter.getMethod(httpServletRequest))) {
-            return true;
+            return SkipResult.skip();
         }
 
         String caseId = adapter.getRequestHeader(httpServletRequest, ArexConstants.RECORD_ID);
 
         // Replay scene
         if (StringUtil.isNotEmpty(caseId)) {
-            return Config.get().getBoolean(ConfigConstants.DISABLE_REPLAY, false);
+            return SkipResult.build(Config.get().getBoolean(ConfigConstants.DISABLE_REPLAY, false));
         }
 
         String forceRecord = adapter.getRequestHeader(httpServletRequest, ArexConstants.FORCE_RECORD, ArexConstants.HEADER_X_PREFIX);
         // Do not skip if header with arex-force-record=true
         if (Boolean.parseBoolean(forceRecord)) {
-            return false;
+            return SkipResult.notSkip();
         }
 
         // Skip if request header with arex-replay-warm-up=true
         if (Boolean.parseBoolean(adapter.getRequestHeader(httpServletRequest, ArexConstants.REPLAY_WARM_UP))) {
-            return true;
+            return SkipResult.skip();
         }
 
         String requestURI = adapter.getRequestURI(httpServletRequest);
         if (StringUtil.isEmpty(requestURI)) {
-            return false;
+            return SkipResult.notSkip();
         }
         String pattern = adapter.getPattern(httpServletRequest);
 //        // As long as one parameter is hit in includeServiceOperations, the operation will not be skipped
@@ -254,18 +256,18 @@ public class ServletAdviceHelper {
         // As long as one parameter is hit in excludeServiceOperations, the operation will be skipped
         if (IgnoreUtils.excludeOperation(pattern) ||
             IgnoreUtils.excludeOperation(requestURI)) {
-            return true;
+            return SkipResult.skip();
         }
 
         // Filter invalid servlet path suffix
         if (FILTERED_GET_URL_SUFFIX.stream().anyMatch(requestURI::endsWith)) {
-            return true;
+            return SkipResult.skip();
         }
 
         // Filter invalid content-type
         String contentType = adapter.getContentType(httpServletRequest);
         if (StringUtil.isNotEmpty(contentType) && FILTERED_CONTENT_TYPE.stream().anyMatch(contentType::contains)) {
-            return true;
+            return SkipResult.skip();
         }
 
         // Filter record rule
@@ -279,22 +281,74 @@ public class ServletAdviceHelper {
             jsonBody = new String(requestBytes);
         }
 
+        String httpPath = null;
+        String ruleId = null;
+
         String tokenBucketKey = pattern;
         if (CollectionUtil.isNotEmpty(Config.get().getRecordRuleList())) {
             RecordRuleMatchResult patternMatchResult = IgnoreUtils.includeRecordRule(pattern, parameterMap, jsonBody);
             if (patternMatchResult.isMatch()) {
                 tokenBucketKey = patternMatchResult.getTokenBucketKey();
+                httpPath = patternMatchResult.getHttpPath();
+                ruleId = patternMatchResult.getTokenBucketKey();
             } else {
                 RecordRuleMatchResult requestURIMatchResult = IgnoreUtils.includeRecordRule(requestURI, parameterMap, jsonBody);
                 if (requestURIMatchResult.isMatch()) {
                     tokenBucketKey = requestURIMatchResult.getTokenBucketKey();
+                    httpPath = requestURIMatchResult.getHttpPath();
+                    ruleId = requestURIMatchResult.getTokenBucketKey();
                 } else {
-                    return true;
+                    return SkipResult.skip();
                 }
             }
         }
 
-        return Config.get().invalidRecord(tokenBucketKey);
+        return SkipResult.build(Config.get().invalidRecord(tokenBucketKey), ruleId, httpPath);
+    }
+
+    private static class SkipResult {
+        private final boolean skip;
+        private String httpPath;
+        private String ruleId;
+
+        private SkipResult(boolean skip) {
+            this.skip = skip;
+        }
+
+        public SkipResult(boolean skip, String ruleId, String httpPath) {
+            this.skip = skip;
+            this.ruleId = ruleId;
+            this.httpPath = httpPath;
+        }
+
+        public boolean isSkip() {
+            return skip;
+        }
+
+        public String getHttpPath() {
+            return httpPath;
+        }
+
+        public String getRuleId() {
+            return ruleId;
+        }
+
+        public static SkipResult build(boolean skip) {
+            return new SkipResult(skip);
+        }
+
+        public static SkipResult build(boolean skip, String ruleId, String httpPath) {
+            return new SkipResult(skip, ruleId, httpPath);
+        }
+
+        public static SkipResult skip() {
+            return new SkipResult(true);
+        }
+
+        public static SkipResult notSkip() {
+            return new SkipResult(false);
+        }
+
     }
 
     private static <TRequest, TResponse> String getRedirectRecordId(ServletAdapter<TRequest, TResponse> adapter,
@@ -322,4 +376,10 @@ public class ServletAdviceHelper {
         ContextManager.setAttachment(ArexConstants.FORCE_RECORD, adapter.getRequestHeader(request, ArexConstants.FORCE_RECORD, ArexConstants.HEADER_X_PREFIX));
         ContextManager.setAttachment(ArexConstants.SCHEDULE_REPLAY, adapter.getRequestHeader(request, ArexConstants.SCHEDULE_REPLAY));
     }
+
+    private static void addRuleRecordToEventSource(SkipResult skipResult, EventSource eventSource) {
+        eventSource.setHttpPath(skipResult.getHttpPath());
+        eventSource.setRuleId(skipResult.getRuleId());
+    }
+
 }

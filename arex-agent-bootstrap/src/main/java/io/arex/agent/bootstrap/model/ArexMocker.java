@@ -10,6 +10,8 @@ public class ArexMocker implements Mocker {
     private MockCategoryType categoryType;
     private String replayId;
     private String recordId;
+    private String recordRuleId;
+    private String httpPath;
     private String appId;
     private int recordEnvironment;
     private String recordVersion;
@@ -118,6 +120,22 @@ public class ArexMocker implements Mocker {
 
     public void setRecordId(String recordId) {
         this.recordId = recordId;
+    }
+
+    public String getRecordRuleId() {
+        return recordRuleId;
+    }
+
+    public void setRecordRuleId(String recordRuleId) {
+        this.recordRuleId = recordRuleId;
+    }
+
+    public String getHttpPath() {
+        return httpPath;
+    }
+
+    public void setHttpPath(String httpPath) {
+        this.httpPath = httpPath;
     }
 
     public void setAppId(String appId) {

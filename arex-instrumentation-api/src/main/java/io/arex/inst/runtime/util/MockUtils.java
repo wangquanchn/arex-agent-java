@@ -83,6 +83,8 @@ public final class MockUtils {
         if (context != null) {
             mocker.setRecordId(context.getCaseId());
             mocker.setReplayId(context.getReplayId());
+            mocker.setRecordRuleId(context.getAttachment(ArexConstants.CONTEXT_ATTACHMENT_KEY_RECORD_RULE_ID).toString());
+            mocker.setHttpPath(context.getAttachment(ArexConstants.CONTEXT_ATTACHMENT_KEY_HTTP_PATH).toString());
             createTime += context.calculateSequence();
         }
         mocker.setCreationTime(createTime);

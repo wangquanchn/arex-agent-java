@@ -17,6 +17,14 @@ public interface Mocker extends Serializable {
 
     void setRecordId(String var1);
 
+    void setRecordRuleId(String recordRuleId);
+
+    String getRecordRuleId();
+
+    void setHttpPath(String httpPath);
+
+    String getHttpPath();
+
     void setRecordEnvironment(int var1);
 
     String getRecordVersion();

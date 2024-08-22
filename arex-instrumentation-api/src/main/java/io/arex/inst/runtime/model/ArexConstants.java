@@ -65,4 +65,6 @@ public class ArexConstants {
     public static final String MERGE_MOCKER_TYPE = "java.util.ArrayList-io.arex.agent.bootstrap.model.ArexMocker";
     public static final int DB_SQL_MAX_LEN = 5000;
     public static final String DISABLE_SQL_PARSE = "arex.disable.sql.parse";
+    public static final String CONTEXT_ATTACHMENT_KEY_HTTP_PATH = "context-attachment-key-http-path";
+    public static final String CONTEXT_ATTACHMENT_KEY_RECORD_RULE_ID = "context-attachment-key-record-rule-id";
 }
