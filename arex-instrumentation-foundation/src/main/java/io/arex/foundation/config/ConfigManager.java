@@ -181,7 +181,7 @@ public class ConfigManager {
                 .map(recordUrlConfiguration -> {
                     RecordRuleEntity entity = new RecordRuleEntity();
                     entity.setAppId(recordUrlConfiguration.getAppId());
-                    entity.setUrlRuleId(recordUrlConfiguration.getUrlRuleId());
+                    entity.setUrlRuleId(recordUrlConfiguration.getId());
                     entity.setHttpPath(recordUrlConfiguration.getHttpPath());
                     entity.setParamRuleEntityList(parseParamRuleEntityList(recordUrlConfiguration.getParamRuleList()));
                     return entity;
@@ -201,7 +201,7 @@ public class ConfigManager {
                     ParamRuleEntity entity = new ParamRuleEntity();
                     entity.setAppId(paramRule.getAppId());
                     entity.setUrlRuleId(paramRule.getUrlRuleId());
-                    entity.setParamRuleId(paramRule.getParamRuleId());
+                    entity.setParamRuleId(paramRule.getId());
                     entity.setParamType(paramRule.getParamType());
                     if (IgnoreUtils.PARAM_TYPE_JSON_BODY.equals(paramRule.getParamType())) {
                         existBodyParamRule = true;

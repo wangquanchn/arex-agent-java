@@ -233,10 +233,18 @@ public class ConfigQueryResponse {
     }
 
     public static class RecordUrlConfiguration {
+        private String id;
         private String appId;
-        private String urlRuleId;
         private String httpPath;
         private List<ParamRule> paramRuleList;
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
 
         public String getAppId() {
             return appId;
@@ -244,14 +252,6 @@ public class ConfigQueryResponse {
 
         public void setAppId(String appId) {
             this.appId = appId;
-        }
-
-        public String getUrlRuleId() {
-            return urlRuleId;
-        }
-
-        public void setUrlRuleId(String urlRuleId) {
-            this.urlRuleId = urlRuleId;
         }
 
         public String getHttpPath() {
@@ -272,14 +272,23 @@ public class ConfigQueryResponse {
     }
 
     public static class ParamRule {
+
+        private String id;
         private String appId;
         private String urlRuleId;
-        private String paramRuleId;
         /**
          * 参数类型枚举：url末尾参数:QUERY_STRING, body参数JSON格式:JSON_BODY
          */
         private String paramType;
         private List<ValueRule> valueRuleList;
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
 
         public String getAppId() {
             return appId;
@@ -295,14 +304,6 @@ public class ConfigQueryResponse {
 
         public void setUrlRuleId(String urlRuleId) {
             this.urlRuleId = urlRuleId;
-        }
-
-        public String getParamRuleId() {
-            return paramRuleId;
-        }
-
-        public void setParamRuleId(String paramRuleId) {
-            this.paramRuleId = paramRuleId;
         }
 
         public String getParamType() {

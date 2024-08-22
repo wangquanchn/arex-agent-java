@@ -1,7 +1,5 @@
 package io.arex.inst.runtime.util;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.arex.agent.bootstrap.util.CollectionUtil;
@@ -90,22 +88,26 @@ public class IgnoreUtils {
                 continue;
             }
 
+            String urlRuleId = recordRule.getUrlRuleId();
+            String httpPath = recordRule.getHttpPath();
+
             List<ParamRuleEntity> paramRuleList = recordRule.getParamRuleEntityList();
             if (CollectionUtil.isEmpty(paramRuleList)) {
-                return RecordRuleMatchResult.matched(recordRule.getUrlRuleId());
+                return RecordRuleMatchResult.matched(urlRuleId, httpPath);
             }
 
-            // re
             for (ParamRuleEntity paramRule : paramRuleList) {
+                String paramRuleId = paramRule.getParamRuleId();
+
                 switch (paramRule.getParamType()) {
                     case PARAM_TYPE_QUERY_STRING:
                         if (urlParamRuleMatched(paramRule, parameterMap)) {
-                            return RecordRuleMatchResult.matched(recordRule.getUrlRuleId(), paramRule.getParamRuleId());
+                            return RecordRuleMatchResult.matched(urlRuleId, httpPath, paramRuleId);
                         }
                         break;
                     case PARAM_TYPE_JSON_BODY:
                         if (bodyParamRuleMatched(paramRule, jsonBody)) {
-                            return RecordRuleMatchResult.matched(recordRule.getUrlRuleId(), paramRule.getParamRuleId());
+                            return RecordRuleMatchResult.matched(urlRuleId, httpPath, paramRuleId);
                         }
                         break;
                     default:
@@ -151,7 +153,7 @@ public class IgnoreUtils {
                 if (jsonElementMatched(jsonNode, valueRule)) {
                     return true;
                 }
-            } catch (JsonProcessingException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
