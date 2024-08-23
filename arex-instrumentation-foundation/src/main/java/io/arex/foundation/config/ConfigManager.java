@@ -194,8 +194,6 @@ public class ConfigManager {
             return new ArrayList<>();
         }
 
-        existUrlParamRule = true;
-
         return paramRuleList.stream()
                 .map(paramRule -> {
                     ParamRuleEntity entity = new ParamRuleEntity();
@@ -203,6 +201,9 @@ public class ConfigManager {
                     entity.setUrlRuleId(paramRule.getUrlRuleId());
                     entity.setParamRuleId(paramRule.getId());
                     entity.setParamType(paramRule.getParamType());
+                    if (IgnoreUtils.PARAM_TYPE_QUERY_STRING.equals(paramRule.getParamType())) {
+                        existUrlParamRule = true;
+                    }
                     if (IgnoreUtils.PARAM_TYPE_JSON_BODY.equals(paramRule.getParamType())) {
                         existBodyParamRule = true;
                     }

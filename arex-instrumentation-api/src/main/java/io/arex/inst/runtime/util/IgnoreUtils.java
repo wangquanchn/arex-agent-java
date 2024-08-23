@@ -75,6 +75,24 @@ public class IgnoreUtils {
         return recordRuleMatched(recordRuleList, targetName, parameterMap, jsonBody);
     }
 
+    public static RecordRuleMatchResult includeRecordRule(String targetName, Map<String, String[]> parameterMap) {
+        if (StringUtil.isEmpty(targetName) || Config.get() == null) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        List<RecordRuleEntity> recordRuleList = Config.get().getRecordRuleList();
+        return recordRuleMatched(recordRuleList, targetName, parameterMap);
+    }
+
+    public static RecordRuleMatchResult includeRecordRule(String targetName, String jsonBody) {
+        if (StringUtil.isEmpty(targetName) || Config.get() == null) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        List<RecordRuleEntity> recordRuleList = Config.get().getRecordRuleList();
+        return recordRuleMatched(recordRuleList, targetName, jsonBody);
+    }
+
     private static RecordRuleMatchResult recordRuleMatched(List<RecordRuleEntity> recordRuleList,
                                              String targetName,
                                              Map<String, String[]> parameterMap,
@@ -112,6 +130,71 @@ public class IgnoreUtils {
                         break;
                     default:
                         break;
+                }
+            }
+        }
+        return RecordRuleMatchResult.notMatched();
+    }
+
+    private static RecordRuleMatchResult recordRuleMatched(List<RecordRuleEntity> recordRuleList,
+                                                           String targetName,
+                                                           Map<String, String[]> parameterMap) {
+        if (CollectionUtil.isEmpty(recordRuleList)) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        for (RecordRuleEntity recordRule : recordRuleList) {
+            if (!recordRule.getHttpPath().equalsIgnoreCase(targetName)) {
+                continue;
+            }
+
+            String urlRuleId = recordRule.getUrlRuleId();
+            String httpPath = recordRule.getHttpPath();
+
+            List<ParamRuleEntity> paramRuleList = recordRule.getParamRuleEntityList();
+            if (CollectionUtil.isEmpty(paramRuleList)) {
+                return RecordRuleMatchResult.matched(urlRuleId, httpPath);
+            }
+
+            for (ParamRuleEntity paramRule : paramRuleList) {
+                String paramRuleId = paramRule.getParamRuleId();
+
+                if (paramRule.getParamType().equals(PARAM_TYPE_QUERY_STRING)) {
+                    if (urlParamRuleMatched(paramRule, parameterMap)) {
+                        return RecordRuleMatchResult.matched(urlRuleId, httpPath, paramRuleId);
+                    }
+                }
+            }
+        }
+        return RecordRuleMatchResult.notMatched();
+    }
+
+    private static RecordRuleMatchResult recordRuleMatched(List<RecordRuleEntity> recordRuleList,
+                                                           String targetName,
+                                                           String jsonBody) {
+        if (CollectionUtil.isEmpty(recordRuleList)) {
+            return RecordRuleMatchResult.notMatched();
+        }
+
+        for (RecordRuleEntity recordRule : recordRuleList) {
+            if (!recordRule.getHttpPath().equalsIgnoreCase(targetName)) {
+                continue;
+            }
+
+            String urlRuleId = recordRule.getUrlRuleId();
+            String httpPath = recordRule.getHttpPath();
+
+            List<ParamRuleEntity> paramRuleList = recordRule.getParamRuleEntityList();
+            if (CollectionUtil.isEmpty(paramRuleList)) {
+                return RecordRuleMatchResult.matched(urlRuleId, httpPath);
+            }
+
+            for (ParamRuleEntity paramRule : paramRuleList) {
+                String paramRuleId = paramRule.getParamRuleId();
+                if (paramRule.getParamType().equals(PARAM_TYPE_JSON_BODY)) {
+                    if (bodyParamRuleMatched(paramRule, jsonBody)) {
+                        return RecordRuleMatchResult.matched(urlRuleId, httpPath, paramRuleId);
+                    }
                 }
             }
         }

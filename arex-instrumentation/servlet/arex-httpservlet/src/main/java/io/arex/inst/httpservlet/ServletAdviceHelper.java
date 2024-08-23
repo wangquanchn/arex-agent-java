@@ -18,6 +18,7 @@ import io.arex.inst.runtime.listener.EventSource;
 import io.arex.inst.runtime.model.ArexConstants;
 import io.arex.inst.runtime.util.IgnoreUtils;
 import io.arex.inst.runtime.log.LogManager;
+import io.arex.inst.runtime.util.SkipResult;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -286,13 +287,13 @@ public class ServletAdviceHelper {
 
         String tokenBucketKey = pattern;
         if (CollectionUtil.isNotEmpty(Config.get().getRecordRuleList())) {
-            RecordRuleMatchResult patternMatchResult = IgnoreUtils.includeRecordRule(pattern, parameterMap, jsonBody);
+            RecordRuleMatchResult patternMatchResult = IgnoreUtils.includeRecordRule(pattern, parameterMap);
             if (patternMatchResult.isMatch()) {
                 tokenBucketKey = patternMatchResult.getTokenBucketKey();
                 httpPath = patternMatchResult.getHttpPath();
                 ruleId = patternMatchResult.getTokenBucketKey();
             } else {
-                RecordRuleMatchResult requestURIMatchResult = IgnoreUtils.includeRecordRule(requestURI, parameterMap, jsonBody);
+                RecordRuleMatchResult requestURIMatchResult = IgnoreUtils.includeRecordRule(requestURI, jsonBody);
                 if (requestURIMatchResult.isMatch()) {
                     tokenBucketKey = requestURIMatchResult.getTokenBucketKey();
                     httpPath = requestURIMatchResult.getHttpPath();
@@ -304,51 +305,6 @@ public class ServletAdviceHelper {
         }
 
         return SkipResult.build(Config.get().invalidRecord(tokenBucketKey), ruleId, httpPath);
-    }
-
-    private static class SkipResult {
-        private final boolean skip;
-        private String httpPath;
-        private String ruleId;
-
-        private SkipResult(boolean skip) {
-            this.skip = skip;
-        }
-
-        public SkipResult(boolean skip, String ruleId, String httpPath) {
-            this.skip = skip;
-            this.ruleId = ruleId;
-            this.httpPath = httpPath;
-        }
-
-        public boolean isSkip() {
-            return skip;
-        }
-
-        public String getHttpPath() {
-            return httpPath;
-        }
-
-        public String getRuleId() {
-            return ruleId;
-        }
-
-        public static SkipResult build(boolean skip) {
-            return new SkipResult(skip);
-        }
-
-        public static SkipResult build(boolean skip, String ruleId, String httpPath) {
-            return new SkipResult(skip, ruleId, httpPath);
-        }
-
-        public static SkipResult skip() {
-            return new SkipResult(true);
-        }
-
-        public static SkipResult notSkip() {
-            return new SkipResult(false);
-        }
-
     }
 
     private static <TRequest, TResponse> String getRedirectRecordId(ServletAdapter<TRequest, TResponse> adapter,
