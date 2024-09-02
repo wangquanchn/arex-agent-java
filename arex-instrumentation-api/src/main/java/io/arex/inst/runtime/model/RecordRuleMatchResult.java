@@ -57,6 +57,8 @@ public class RecordRuleMatchResult {
     }
 
     public String getTokenBucketKey() {
-        return paramRuleId != null ? paramRuleId : urlRuleId;
+        return paramRuleId != null ? paramRuleId
+                : urlRuleId != null ? urlRuleId
+                : httpPath;
     }
 }
