@@ -4,6 +4,8 @@ import com.google.common.annotations.VisibleForTesting;
 import io.arex.agent.bootstrap.util.ArrayUtils;
 import io.arex.agent.bootstrap.util.MapUtils;
 import io.arex.agent.bootstrap.util.StringUtil;
+import io.arex.foundation.logger.AgentLogger;
+import io.arex.foundation.logger.AgentLoggerFactory;
 import io.arex.foundation.model.ConfigQueryResponse;
 import io.arex.foundation.model.ConfigQueryResponse.DynamicClassConfiguration;
 import io.arex.foundation.model.ConfigQueryResponse.RecordUrlConfiguration;
@@ -14,13 +16,10 @@ import io.arex.inst.runtime.config.Config;
 import io.arex.inst.runtime.config.ConfigBuilder;
 import io.arex.inst.runtime.config.listener.ConfigListener;
 import io.arex.inst.runtime.model.*;
+import io.arex.inst.runtime.util.IgnoreUtils;
 import io.arex.agent.bootstrap.util.ServiceLoader;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-
-import io.arex.inst.runtime.util.IgnoreUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,7 +37,7 @@ import static java.util.stream.Collectors.toList;
 
 public class ConfigManager {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ConfigManager.class);
+    private static final AgentLogger LOGGER = AgentLoggerFactory.getAgentLogger(ConfigManager.class);
     public static final ConfigManager INSTANCE = new ConfigManager();
     public static final AtomicBoolean FIRST_TRANSFORM = new AtomicBoolean(false);
     private static final int DEFAULT_RECORDING_RATE = 1;
